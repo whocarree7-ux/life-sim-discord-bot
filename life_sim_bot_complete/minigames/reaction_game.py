@@ -15,7 +15,7 @@ class ReactionGame:
 
         try:
             # User has 2 seconds to react
-            await ctx.bot.wait_for("reaction_add", timeout=2.0, check=check)
+            await ctx.bot.wait_for("reaction_add", timeout=5.0, check=check)
             return True
         except asyncio.TimeoutError:
             return False
