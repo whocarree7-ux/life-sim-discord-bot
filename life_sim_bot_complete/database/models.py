@@ -1,10 +1,11 @@
-
 def default_player(user_id, background):
     return {
         "user_id": user_id,
         "age": 21,
         "background": background,
-        "money": background["money"],
+        "money": background["money"], # This is Cash on Hand
+        "bank": 0,                     # <--- NEW: Bank balance
+        "bank_limit": 5000,            # <--- NEW: Maximum bank capacity
         "job": "delivery_worker",
         "stats": {
             "intelligence": 3,
