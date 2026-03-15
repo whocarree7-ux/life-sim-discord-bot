@@ -11,9 +11,9 @@ class InvestmentSystem:
     def update_market(self):
         """Randomly fluctuate prices."""
         # Gold is stable (changes 1-3%)
-        gold_change = random.uniform(-0.03, 0.03)
+        gold_change = random.uniform(-0.03, 0.08)
         # Crypto is volatile (changes 5-15%)
-        crypto_change = random.uniform(-0.15, 0.15)
+        crypto_change = random.uniform(-0.15, 0.80)
 
         self.prices["gold"] = max(100, int(self.prices["gold"] * (1 + gold_change)))
         self.prices["crypto"] = max(1000, int(self.prices["crypto"] * (1 + crypto_change)))
