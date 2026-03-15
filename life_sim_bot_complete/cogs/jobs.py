@@ -43,6 +43,11 @@ class JobDropdown(discord.ui.Select):
             description=f"Congratulations! You are now working as a **{job_title}**.\nUse `/work` to start your shift.",
             color=discord.Color.green()
         )
+
+        # Check for image in JSON
+        if "image" in job_data:
+            embed.set_thumbnail(url=job_data["image"])
+
         embed.add_field(name="💰 Base Salary", value=f"${job_data['salary']}", inline=True)
         embed.add_field(name="⭐ Rep Gain", value="+5 Points", inline=True)
         embed.add_field(name="⏳ Cooldown", value="5 Minutes", inline=True)
