@@ -1,11 +1,11 @@
 import discord
+from discord import app_commands # Added for slash commands
 from discord.ext import commands
 import json
 import random
 from database.db import players
 from systems.minigame_manager import MinigameManager
 
-# UI Select Menu for Jobs
 class JobDropdown(discord.ui.Select):
     def __init__(self, jobs, user_rep):
         options = []
@@ -21,8 +21,6 @@ class JobDropdown(discord.ui.Select):
         super().__init__(placeholder="Choose your profession...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # We need to find the job data again to check rep
-        # Note: We'll pull this from the view's stored jobs
         job_id = self.values[0]
         job_data = next((j for j in self.view.jobs_list if j["name"] == job_id), None)
         
@@ -55,7 +53,8 @@ class Jobs(commands.Cog):
             print(f"JSON Error: {e}")
             self.jobs = [{"name": "laborer", "salary": 30, "req_rep": 0, "minigame": "reaction"}]
 
-    @commands.command(name="jobs")
+    # Added Slash Support for !jobs
+    @commands.hybrid_command(name="jobs", description="View and select available jobs")
     async def jobs(self, ctx):
         player = await players.find_one({"user_id": ctx.author.id})
         if not player:
@@ -69,8 +68,9 @@ class Jobs(commands.Cog):
         
         await ctx.send(embed=embed, view=view)
 
-    @commands.command(name="work")
-    @commands.cooldown(1, 3600, commands.BucketType.user)
+    # Updated Cooldown to 300s (5 min) and added Slash Support
+    @commands.hybrid_command(name="work", description="Work your shift to earn money")
+    @commands.cooldown(1, 300, commands.BucketType.user) 
     async def work(self, ctx):
         player = await players.find_one({"user_id": ctx.author.id})
         if not player:
@@ -82,7 +82,6 @@ class Jobs(commands.Cog):
         
         await ctx.send(f"⚒️ **Work Shift:** {job_data['name'].replace('_', ' ').title()} task starting...")
         
-        # Trigger mini-game
         success = await self.mg_manager.run(ctx, job_data.get("minigame", "random"))
 
         if success:
@@ -95,6 +94,16 @@ class Jobs(commands.Cog):
         else:
             await ctx.send("❌ Shift Failed! You didn't finish the task.")
 
+    # Added Error Handler for Cooldown
+    @work.error
+    async def work_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            minutes = int(error.retry_after // 60)
+            seconds = int(error.retry_after % 60)
+            await ctx.send(f"⏳ **Chill out!** You are tired. You can work again in **{minutes}m {seconds}s**.")
+        else:
+            raise error
+
 async def setup(bot):
     await bot.add_cog(Jobs(bot))
-            
+    
