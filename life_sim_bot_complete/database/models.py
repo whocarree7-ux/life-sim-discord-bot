@@ -5,7 +5,7 @@ def default_player(user_id, background):
         "age": 21,
         "background": background,
         "money": background["money"],
-        "job": None,
+        "job": "delivery_worker",
         "stats": {
             "intelligence": 3,
             "strength": 3,
