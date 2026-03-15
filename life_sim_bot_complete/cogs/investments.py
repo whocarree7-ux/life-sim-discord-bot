@@ -11,7 +11,7 @@ class Investments(commands.Cog):
     def cog_unload(self):
         self.market_loop.cancel()
 
-    @tasks.loop(hours=1)
+    @tasks.loop(hours=0.5)
     async def market_loop(self):
         """Update market prices every hour."""
         market.update_market()
