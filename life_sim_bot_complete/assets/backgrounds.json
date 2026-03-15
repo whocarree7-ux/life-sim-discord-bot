@@ -1,0 +1,14 @@
+[
+  {
+    "name": "poor",
+    "money": 50
+  },
+  {
+    "name": "middle_class",
+    "money": 500
+  },
+  {
+    "name": "rich_kid",
+    "money": 5000
+  }
+]

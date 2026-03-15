@@ -1,0 +1,14 @@
+[
+  {
+    "name": "delivery_worker",
+    "salary": 40
+  },
+  {
+    "name": "barista",
+    "salary": 60
+  },
+  {
+    "name": "fast_food_staff",
+    "salary": 50
+  }
+]
