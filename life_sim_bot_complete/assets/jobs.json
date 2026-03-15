@@ -3,18 +3,21 @@
     "name": "delivery_worker",
     "salary": 40,
     "req_rep": 0,
-    "minigame": "reaction"
+    "minigame": "reaction",
+    "image": "YOUR_DISCORD_LINK_FOR_DELIVERY_HERE"
   },
   {
     "name": "fast_food_staff",
     "salary": 60,
     "req_rep": 50,
-    "minigame": "typing"
+    "minigame": "typing",
+    "image": "YOUR_DISCORD_LINK_FOR_FAST_FOOD_HERE"
   },
   {
     "name": "barista",
     "salary": 80,
     "req_rep": 150,
-    "minigame": "memory"
+    "minigame": "memory",
+    "image": "YOUR_DISCORD_LINK_FOR_BARISTA_HERE"
   }
 ]
