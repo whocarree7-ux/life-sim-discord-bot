@@ -1,14 +1,17 @@
 [
   {
     "name": "delivery_worker",
-    "salary": 40
-  },
-  {
-    "name": "barista",
-    "salary": 60
+    "salary": 40,
+    "req_rep": 0
   },
   {
     "name": "fast_food_staff",
-    "salary": 50
+    "salary": 60,
+    "req_rep": 50
+  },
+  {
+    "name": "barista",
+    "salary": 80,
+    "req_rep": 150
   }
 ]
