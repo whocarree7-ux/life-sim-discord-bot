@@ -1,5 +1,5 @@
 import discord
-from discord import app_commands # Added for slash commands
+from discord import app_commands
 from discord.ext import commands
 import json
 import random
@@ -30,11 +30,31 @@ class JobDropdown(discord.ui.Select):
         if user_rep < job_data.get('req_rep', 0):
             return await interaction.response.send_message(f"❌ You need {job_data['req_rep']} Rep!", ephemeral=True)
 
+        # Update Database
         await players.update_one(
             {"user_id": interaction.user.id},
             {"$set": {"job": job_id}}
         )
-        await interaction.response.send_message(f"✅ Success! You are now a **{job_id.replace('_', ' ').title()}**.", ephemeral=True)
+
+        # Create a beautiful detailed description embed
+        job_title = job_id.replace('_', ' ').title()
+        embed = discord.Embed(
+            title=f"✅ Job Selected: {job_title}",
+            description=f"Congratulations! You are now working as a **{job_title}**.\nUse `/work` to start your shift.",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="💰 Base Salary", value=f"${job_data['salary']}", inline=True)
+        embed.add_field(name="⭐ Rep Gain", value="+5 Points", inline=True)
+        embed.add_field(name="⏳ Cooldown", value="5 Minutes", inline=True)
+        embed.add_field(name="🎮 Minigame", value=f"{job_data.get('minigame', 'Standard').title()}", inline=True)
+        
+        embed.set_footer(text="Arcadia Employment Services")
+
+        # Edit the original message to show the description and remove the dropdown
+        await interaction.response.edit_message(embed=embed, view=None)
+        
+        # Keep the success prompt as a small temporary message
+        await interaction.followup.send(f"✅ Success! You are now a **{job_title}**.", ephemeral=True)
 
 class JobView(discord.ui.View):
     def __init__(self, jobs_list, user_rep):
@@ -53,7 +73,6 @@ class Jobs(commands.Cog):
             print(f"JSON Error: {e}")
             self.jobs = [{"name": "laborer", "salary": 30, "req_rep": 0, "minigame": "reaction"}]
 
-    # Added Slash Support for !jobs
     @commands.hybrid_command(name="jobs", description="View and select available jobs")
     async def jobs(self, ctx):
         player = await players.find_one({"user_id": ctx.author.id})
@@ -68,7 +87,6 @@ class Jobs(commands.Cog):
         
         await ctx.send(embed=embed, view=view)
 
-    # Updated Cooldown to 300s (5 min) and added Slash Support
     @commands.hybrid_command(name="work", description="Work your shift to earn money")
     @commands.cooldown(1, 300, commands.BucketType.user) 
     async def work(self, ctx):
@@ -94,7 +112,6 @@ class Jobs(commands.Cog):
         else:
             await ctx.send("❌ Shift Failed! You didn't finish the task.")
 
-    # Added Error Handler for Cooldown
     @work.error
     async def work_error(self, ctx, error):
         if isinstance(error, commands.CommandOnCooldown):
@@ -106,4 +123,3 @@ class Jobs(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Jobs(bot))
-    
