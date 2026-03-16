@@ -1,14 +1,22 @@
 [
   {
     "name": "poor",
-    "money": 50
+    "money": 50,
+    "chance": 60
   },
   {
     "name": "middle_class",
-    "money": 500
+    "money": 500,
+    "chance": 30
   },
   {
     "name": "rich_kid",
-    "money": 5000
+    "money": 5000,
+    "chance": 9
+  },
+  {
+    "name": "vampire",
+    "money": 50000,
+    "chance": 1
   }
 ]
