@@ -6,6 +6,7 @@ from database.db import players
 
 class HouseDropdown(discord.ui.Select):
     def __init__(self, housing_data, owned_houses, user_coins):
+        self.housing_list = housing_data
         options = []
         for h in housing_data:
             label = h['name'].title()
@@ -14,140 +15,146 @@ class HouseDropdown(discord.ui.Select):
             
             options.append(discord.SelectOption(
                 label=label,
-                description="Already Owned ✅" if is_owned else f"Price: ${h['price']}",
+                description=f"Already Owned" if is_owned else f"Price: ${h['price']}",
                 value=h['name'],
                 emoji="🏠" if not is_too_expensive else "🔒"
             ))
-        super().__init__(placeholder="Choose a property...", options=options)
+        super().__init__(placeholder="Browse properties...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
+        # 1. Get the selected house data
         house_name = self.values[0]
-        house_data = next((h for h in self.view.housing_list if h["name"] == house_name), None)
+        house_data = next((h for h in self.housing_list if h["name"] == house_name), None)
         
+        # 2. Get fresh player data
         player = await players.find_one({"user_id": interaction.user.id})
         owned_houses = player.get("owned_houses", ["shelter"])
-        current_house = player.get("house", "shelter")
-
-        if house_name == current_house:
-            return await interaction.response.send_message(f"🏠 You are already in your **{house_name.title()}**!", ephemeral=True)
-
-        if house_name in owned_houses:
-            await players.update_one({"user_id": interaction.user.id}, {"$set": {"house": house_name}})
-            return await interaction.response.send_message(f"🚚 You moved back to your **{house_name.title()}**!", ephemeral=True)
-
         user_coins = player.get("money", 0)
-        if user_coins < house_data['price']:
-            return await interaction.response.send_message(f"❌ You can't afford a {house_name.title()}!", ephemeral=True)
 
-        await players.update_one(
-            {"user_id": interaction.user.id},
-            {
-                "$set": {"house": house_name},
-                "$inc": {"money": -house_data['price']},
-                "$addToSet": {"owned_houses": house_name}
-            }
-        )
+        # 3. Update the view's current selection
+        self.view.current_selection = house_data
+        
+        # 4. Prepare Embed
+        is_owned = house_name in owned_houses
+        color = discord.Color.green() if is_owned else discord.Color.blue()
+        
+        embed = discord.Embed(title=f"🏠 Property: {house_name.title()}", color=color)
+        embed.description = house_data.get("description", "A beautiful property in the heart of Arcadia.")
+        
+        if "image" in house_data: 
+            embed.set_image(url=house_data["image"])
+        
+        embed.add_field(name="💰 Price", value=f"${house_data['price']}", inline=True)
+        embed.add_field(name="📜 Status", value="Owned ✅" if is_owned else "Available 🛒", inline=True)
 
-        embed = discord.Embed(title="🏠 New Home Unlocked!", color=discord.Color.gold())
-        if "image" in house_data: embed.set_thumbnail(url=house_data["image"])
-        embed.add_field(name="Property", value=house_name.title())
-        embed.add_field(name="Price Paid", value=f"${house_data['price']}")
-
-        await interaction.response.edit_message(embed=embed, view=None)
+        # 5. Enable/Disable the Buy Button
+        self.view.buy_btn.disabled = is_owned or user_coins < house_data['price']
+        self.view.buy_btn.label = "Owned" if is_owned else "Buy Property"
+        
+        await interaction.response.edit_message(embed=embed, view=self.view)
 
 class HouseView(discord.ui.View):
     def __init__(self, housing_list, owned_houses, user_coins):
         super().__init__(timeout=60)
         self.housing_list = housing_list
+        self.current_selection = None
+        
+        # Add Dropdown
         self.add_item(HouseDropdown(housing_list, owned_houses, user_coins))
+        
+        # Add Buy Button
+        self.buy_btn = discord.ui.Button(label="Select a House", style=discord.ButtonStyle.green, disabled=True)
+        self.buy_btn.callback = self.buy_callback
+        self.add_item(self.buy_btn)
+
+    async def buy_callback(self, interaction: discord.Interaction):
+        if not self.current_selection: return
+
+        # Final check
+        player = await players.find_one({"user_id": interaction.user.id})
+        if player.get("money", 0) < self.current_selection['price']:
+            return await interaction.response.send_message("❌ You ran out of money!", ephemeral=True)
+
+        await players.update_one(
+            {"user_id": interaction.user.id},
+            {
+                "$set": {"house": self.current_selection['name']},
+                "$inc": {"money": -self.current_selection['price']},
+                "$addToSet": {"owned_houses": self.current_selection['name']}
+            }
+        )
+
+        await interaction.response.send_message(f"🎊 Congratulations! You are now the owner of a **{self.current_selection['name'].title()}**!", ephemeral=False)
+        self.stop()
 
 class Housing(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.housing_data = self.load_housing()
+
+    def load_housing(self):
         try:
             with open("assets/housing.json") as f:
-                self.housing_data = json.load(f)
+                return json.load(f)
         except:
-            self.housing_data = [{"name": "shelter", "price": 0}]
+            return [{"name": "shelter", "price": 0, "description": "A basic place to stay."}]
 
     house_group = app_commands.Group(name="house", description="Property management")
 
     @house_group.command(name="buy")
     async def buy(self, interaction: discord.Interaction):
         player = await players.find_one({"user_id": interaction.user.id})
-        if not player: return await interaction.response.send_message("❌ Use `!start` first.")
+        if not player: return await interaction.response.send_message("❌ Use `/start` first.")
 
-        user_coins = player.get("money", 0)
-        owned = player.get("owned_houses", ["shelter"])
+        view = HouseView(self.housing_data, player.get("owned_houses", ["shelter"]), player.get("money", 0))
+        embed = discord.Embed(title="🏠 Arcadia Real Estate", description="Select a property from the menu to see its details.", color=discord.Color.blue())
         
-        view = HouseView(self.housing_data, owned, user_coins)
-        
-        embed = discord.Embed(title="🏠 Real Estate Market", description="Upgrade your lifestyle!", color=discord.Color.blue())
         await interaction.response.send_message(embed=embed, view=view)
 
     @house_group.command(name="info")
     async def info(self, interaction: discord.Interaction):
         player = await players.find_one({"user_id": interaction.user.id})
+        if not player: return await interaction.response.send_message("❌ Start your journey first!")
+        
         current_house = player.get("house", "shelter")
         house_data = next((h for h in self.housing_data if h["name"] == current_house), self.housing_data[0])
 
-        embed = discord.Embed(title=f"🏠 Current Home: {current_house.title()}", color=discord.Color.green())
+        embed = discord.Embed(title=f"🏠 Your Home: {current_house.title()}", color=discord.Color.green())
+        embed.description = house_data.get("description", "No description available.")
+        
+        embed.add_field(name="Market Value", value=f"${house_data.get('price', 0)}")
+        embed.add_field(name="Ownership", value="Full Title Deed")
+        
         if "image" in house_data: embed.set_image(url=house_data["image"])
+        
         await interaction.response.send_message(embed=embed)
 
-    # --- NEW: SELL COMMAND ---
-    @house_group.command(name="sell", description="Sell a house you own for 50% value")
+    @house_group.command(name="sell")
     async def sell(self, interaction: discord.Interaction):
         player = await players.find_one({"user_id": interaction.user.id})
-        if not player: return await interaction.response.send_message("❌ Use `!start` first.")
-
         owned_houses = player.get("owned_houses", ["shelter"])
-        
-        # Filter out "shelter" (can't sell the base home) and only show owned items
         sellable = [h for h in self.housing_data if h["name"] in owned_houses and h["name"] != "shelter"]
 
         if not sellable:
-            return await interaction.response.send_message("❌ You don't own any sellable properties!", ephemeral=True)
+            return await interaction.response.send_message("❌ You have no properties to sell!", ephemeral=True)
 
-        # Create a select menu for selling
-        options = []
-        for h in sellable:
-            refund = int(h['price'] * 0.5)
-            options.append(discord.SelectOption(
-                label=h['name'].title(),
-                description=f"Sell for ${refund}",
-                value=h['name']
-            ))
+        options = [discord.SelectOption(label=h['name'].title(), description=f"Sell for ${int(h['price']*0.5)}", value=h['name']) for h in sellable]
+        select = discord.ui.Select(placeholder="Choose a house to sell...", options=options)
 
-        select = discord.ui.Select(placeholder="Select a house to sell...", options=options)
+        async def sell_callback(si: discord.Interaction):
+            target = select.values[0]
+            house_item = next(h for h in self.housing_data if h["name"] == target)
+            refund = int(house_item['price'] * 0.5)
 
-        async def sell_callback(select_interaction: discord.Interaction):
-            target_house = select.values[0]
-            house_item = next(h for h in self.housing_data if h["name"] == target_house)
-            refund_amount = int(house_item['price'] * 0.5)
+            update = {"$pull": {"owned_houses": target}, "$inc": {"money": refund}}
+            if player.get("house") == target: update["$set"] = {"house": "shelter"}
 
-            # Update DB: Remove from owned, add money, reset active house if it's the one being sold
-            update_ops = {
-                "$pull": {"owned_houses": target_house},
-                "$inc": {"money": refund_amount}
-            }
-            
-            if player.get("house") == target_house:
-                update_ops["$set"] = {"house": "shelter"}
-
-            await players.update_one({"user_id": interaction.user.id}, update_ops)
-
-            await select_interaction.response.edit_message(
-                content=f"✅ Sold your **{target_house.title()}** for **${refund_amount}**!", 
-                view=None, 
-                embed=None
-            )
+            await players.update_one({"user_id": interaction.user.id}, update)
+            await si.response.edit_message(content=f"✅ Sold **{target.title()}** for **${refund}**!", view=None, embed=None)
 
         select.callback = sell_callback
-        view = discord.ui.View()
-        view.add_item(select)
-
-        await interaction.response.send_message("🏠 **Real Estate Agent:** Which property would you like to list for sale?", view=view, ephemeral=True)
+        view = discord.ui.View(); view.add_item(select)
+        await interaction.response.send_message("🏠 List a property for sale (50% value):", view=view, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Housing(bot))
