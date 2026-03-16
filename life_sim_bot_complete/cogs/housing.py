@@ -106,11 +106,11 @@ class Housing(commands.Cog):
             description=f"You are currently living in a **{current_house.title()}**.",
             color=discord.Color.green()
         )
-        if "image" in house_data:
-            embed.set_image(url=house_data["image"]) # Shows a large picture of your house
+        
+        if house_data and "image" in house_data:
+            embed.set_image(url=house_data["image"])
 
         await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Housing(bot))
-        
