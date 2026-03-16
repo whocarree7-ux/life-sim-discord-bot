@@ -1,14 +1,17 @@
 [
   {
     "name": "shelter",
-    "price": 0
+    "price": 0,
+    "image": "YOUR_DISCORD_LINK_FOR_SHELTER"
   },
   {
     "name": "room",
-    "price": 500
+    "price": 500,
+    "image": "YOUR_DISCORD_LINK_FOR_ROOM"
   },
   {
     "name": "apartment",
-    "price": 2000
+    "price": 2000,
+    "image": "YOUR_DISCORD_LINK_FOR_APARTMENT"
   }
 ]
