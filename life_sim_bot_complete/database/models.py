@@ -8,9 +8,9 @@ def default_player(user_id, background):
         "bank_limit": 5000,              # Max bank capacity
         "debt": 0,                       # Total amount owed to the bank
         "credit_score": 500,             # Affects loan limits (Standard is 500)
-        "missed_payments": 0,            # <--- Tracks days for the 3-day seizure rule
+        "missed_payments": 0,            # Tracks days for the 3-day seizure rule
         
-        "investments": {                 # <--- NEW: Investment Portfolio
+        "investments": {                 # Investment Portfolio
             "gold": 0, 
             "crypto": 0
         },
@@ -28,6 +28,10 @@ def default_player(user_id, background):
             "energy": 100,
             "reputation": 5
         },
-        "house": "shelter",
+        
+        # --- HOUSING UPDATE ---
+        "house": "shelter",              # Current active residence
+        "owned_houses": ["shelter"],     # List of all properties the player owns
+        
         "relationship": None
     }
