@@ -1,0 +1,10 @@
+[
+  {
+    "name": "lottery",
+    "effect": "money"
+  },
+  {
+    "name": "sick",
+    "effect": "health"
+  }
+]
