@@ -1,0 +1,20 @@
+[
+  {
+    "name": "delivery_worker",
+    "salary": 40,
+    "req_rep": 0,
+    "minigame": "reaction"
+  },
+  {
+    "name": "fast_food_staff",
+    "salary": 60,
+    "req_rep": 50,
+    "minigame": "typing"
+  },
+  {
+    "name": "barista",
+    "salary": 80,
+    "req_rep": 150,
+    "minigame": "memory"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "shelter",
+    "price": 0
+  },
+  {
+    "name": "room",
+    "price": 500
+  },
+  {
+    "name": "apartment",
+    "price": 2000
+  }
+]
