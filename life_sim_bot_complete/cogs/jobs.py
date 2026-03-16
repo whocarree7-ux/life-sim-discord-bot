@@ -21,7 +21,6 @@ class JobDropdown(discord.ui.Select):
         super().__init__(placeholder="Choose your profession...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # Acknowledge the interaction immediately to prevent timeout
         await interaction.response.defer(ephemeral=False, thinking=False)
         
         job_id = self.values[0]
@@ -41,7 +40,9 @@ class JobDropdown(discord.ui.Select):
         
         job_title = job_id.replace('_', ' ').title()
         if is_current_job and promo_level > 0:
-            job_title = job_data.get('promotions', [])[promo_level-1]
+            promos = job_data.get('promotions', [])
+            if promo_level <= len(promos):
+                job_title = promos[promo_level-1]
 
         embed = discord.Embed(title=f"💼 Job Info: {job_title}", color=discord.Color.blue())
         if "image" in job_data: embed.set_thumbnail(url=job_data["image"])
@@ -60,7 +61,6 @@ class JobDropdown(discord.ui.Select):
         embed.add_field(name="💰 Current Salary", value=f"${salary}", inline=True)
         embed.add_field(name="⏳ Cooldown", value=f"{cooldown//60}m", inline=True)
 
-        # Update the original message
         await interaction.edit_original_response(embed=embed, view=self.view)
 
 class JobView(discord.ui.View):
@@ -72,7 +72,8 @@ class JobView(discord.ui.View):
         self.add_item(JobDropdown(jobs_list, user_rep))
         
         self.accept_btn = discord.ui.Button(label="Accept Job", style=discord.ButtonStyle.green, disabled=True)
-        self.promote_btn = discord.ui.Button(label="Promote", style=discord.ButtonStyle.gold, emoji="⭐", disabled=True)
+        # FIXED: Style changed from gold to blurple
+        self.promote_btn = discord.ui.Button(label="Promote", style=discord.ButtonStyle.blurple, emoji="⭐", disabled=True)
         
         self.accept_btn.callback = self.accept_callback
         self.promote_btn.callback = self.promote_callback
@@ -82,6 +83,7 @@ class JobView(discord.ui.View):
 
     def update_buttons(self, is_current, level):
         self.accept_btn.disabled = is_current
+        # Max promotions check based on your JSON structure (usually 3)
         self.promote_btn.disabled = not is_current or level >= 3
 
     async def accept_callback(self, interaction: discord.Interaction):
@@ -100,11 +102,15 @@ class JobView(discord.ui.View):
         if player.get("stats", {}).get("reputation", 0) < req_rep:
             return await interaction.response.send_message(f"❌ You need {req_rep} Rep!", ephemeral=True)
 
+        promos = self.current_selection.get('promotions', [])
+        if current_lvl >= len(promos):
+            return await interaction.response.send_message("❌ You have reached the maximum level for this job!", ephemeral=True)
+
         await players.update_one(
             {"user_id": interaction.user.id},
             {"$inc": {"job_level": 1, "money": -50}}
         )
-        new_title = self.current_selection['promotions'][current_lvl]
+        new_title = promos[current_lvl]
         await interaction.response.send_message(f"🎊 Promoted to **{new_title}**!", ephemeral=True)
         self.stop()
 
@@ -122,9 +128,7 @@ class Jobs(commands.Cog):
 
     @commands.hybrid_command(name="jobs")
     async def jobs(self, ctx):
-        # 1. Immediate acknowledgement
         await ctx.defer() 
-        
         try:
             player = await players.find_one({"user_id": ctx.author.id})
             if not player:
@@ -169,7 +173,10 @@ class Jobs(commands.Cog):
                 {"user_id": ctx.author.id},
                 {"$inc": {"money": salary, "stats.reputation": 5}}
             )
-            title = job_data['promotions'][promo_level-1] if promo_level > 0 else job_id.replace('_', ' ').title()
+            
+            promos = job_data.get('promotions', [])
+            title = promos[promo_level-1] if promo_level > 0 and promo_level <= len(promos) else job_id.replace('_', ' ').title()
+            
             await ctx.send(f"✅ **{title}** Shift Complete! Earned **${salary}**.")
         else:
             await ctx.send("❌ Task failed!")
