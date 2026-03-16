@@ -14,7 +14,7 @@ class Profile(commands.Cog):
                 self.backgrounds = json.load(f)
         except:
             # Fallback if the JSON is missing
-            self.backgrounds = [{"name": "Average Citizen", "money": 500}]
+            self.backgrounds = [{"name": "poor", "money": 50, "chance": 100}]
 
     @app_commands.command(name="start", description="Begin your new life in Arcadia")
     async def start(self, interaction: discord.Interaction):
@@ -23,16 +23,28 @@ class Profile(commands.Cog):
         if existing:
             return await interaction.response.send_message("❌ You already have a profile! Use `/profile` to see it.", ephemeral=True)
 
-        # Select a random starting background
-        background = random.choice(self.backgrounds)
+        # --- UPDATED CHANCE SYSTEM ---
+        # Select background based on the 'chance' weights in backgrounds.json
+        weights = [bg.get('chance', 1) for bg in self.backgrounds]
+        background = random.choices(self.backgrounds, weights=weights, k=1)[0]
+        # -----------------------------
+
         player = default_player(interaction.user.id, background)
+        
+        # Ensure the background name is saved in the database record
+        player["background"] = background["name"]
 
         await players.insert_one(player)
 
+        # Check if it's a rare pull for a special message
+        is_rare = background['name'].lower() == "vampire"
+        title = "🧛 A Dark Awakening..." if is_rare else "✨ New Life Started!"
+        color = discord.Color.purple() if is_rare else discord.Color.green()
+
         embed = discord.Embed(
-            title="✨ New Life Started!",
-            description=f"Welcome to Arcadia, **{interaction.user.name}**!\nYour background is: **{background['name']}**.",
-            color=discord.Color.green()
+            title=title,
+            description=f"Welcome to Arcadia, **{interaction.user.name}**!\nYour background is: **{background['name'].replace('_', ' ').title()}**.",
+            color=color
         )
         embed.add_field(name="💰 Starting Cash", value=f"${background['money']}")
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
@@ -55,6 +67,7 @@ class Profile(commands.Cog):
         bank_limit = player.get("bank_limit", 5000)
         job = player.get("job", "Unemployed").replace("_", " ").title()
         house = player.get("house", "Shelter").title()
+        background = player.get("background", "Citizen").replace("_", " ").title()
         stats = player.get("stats", {})
 
         embed = discord.Embed(
@@ -70,9 +83,10 @@ class Profile(commands.Cog):
         )
 
         # Category 2: Lifestyle
+        # Added Background here so players can see their rare role
         embed.add_field(
             name="🏠 Lifestyle", 
-            value=f"**Job:** {job}\n**House:** {house}", 
+            value=f"**Origin:** {background}\n**Job:** {job}\n**House:** {house}", 
             inline=True
         )
 
