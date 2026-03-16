@@ -3,21 +3,27 @@
     "name": "delivery_worker",
     "salary": 40,
     "req_rep": 0,
+    "cooldown": 120,
     "minigame": "reaction",
-    "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482813131574087740/1773600034422.png?ex=69b850d7&is=69b6ff57&hm=17bfec83f0119c3e6ebc5f346a7b790aba3a5ff9f2019d4cf3cddd6cf8efcf7d&"
+    "promotions": ["Bike Courier", "Truck Driver", "Logistics Manager"],
+    "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482813131574087740/1773600034422.png"
   },
   {
     "name": "fast_food_staff",
     "salary": 60,
     "req_rep": 50,
+    "cooldown": 300,
     "minigame": "typing",
-    "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482830470483017758/1773604711165.png?ex=69b860fd&is=69b70f7d&hm=3d701953e06880c5b8b20f36e59af67cf22ce0bcb5f70a8980650c70230f5480&"
+    "promotions": ["Kitchen Supervisor", "Shift Lead", "Outlet Manager"],
+    "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482830470483017758/1773604711165.png"
   },
   {
     "name": "barista",
     "salary": 80,
     "req_rep": 150,
+    "cooldown": 480,
     "minigame": "memory",
-    "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482832352420958420/image0.png?ex=69b862be&is=69b7113e&hm=46ec2252ad5a6e5439905b51940a74b729f7d1abaad0847d5b680069222fb593&"
+    "promotions": ["Senior Barista", "Coffee Specialist", "Cafe Owner"],
+    "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482832352420958420/image0.png"
   }
 ]
