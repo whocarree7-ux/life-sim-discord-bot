@@ -5,6 +5,8 @@
     "req_rep": 0,
     "cooldown": 120,
     "minigame": "reaction",
+    "promo_bonus": 15,
+    "promo_cooldown_inc": 30,
     "promotions": ["Bike Courier", "Truck Driver", "Logistics Manager"],
     "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482813131574087740/1773600034422.png"
   },
@@ -14,6 +16,8 @@
     "req_rep": 50,
     "cooldown": 300,
     "minigame": "typing",
+    "promo_bonus": 25,
+    "promo_cooldown_inc": 60,
     "promotions": ["Kitchen Supervisor", "Shift Lead", "Outlet Manager"],
     "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482830470483017758/1773604711165.png"
   },
@@ -23,6 +27,8 @@
     "req_rep": 150,
     "cooldown": 480,
     "minigame": "memory",
+    "promo_bonus": 40,
+    "promo_cooldown_inc": 90,
     "promotions": ["Senior Barista", "Coffee Specialist", "Cafe Owner"],
     "image": "https://cdn.discordapp.com/attachments/1482162267968503910/1482832352420958420/image0.png"
   }
