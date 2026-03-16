@@ -18,29 +18,33 @@ class JobDropdown(discord.ui.Select):
                 value=j['name'],
                 emoji="🔒" if is_locked else "💼"
             ))
-        # Ensure the view is linked
         super().__init__(placeholder="Choose your profession...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
+        # 1. Fetch data
         job_id = self.values[0]
         job_data = next((j for j in self.view.jobs_list if j["name"] == job_id), None)
-        
-        # Fresh fetch of player data to avoid stale context
         player = await players.find_one({"user_id": interaction.user.id})
         user_rep = player.get("stats", {}).get("reputation", 0) if player else 0
 
+        # 2. Check Reputation
         if user_rep < job_data.get('req_rep', 0):
             return await interaction.response.send_message(f"❌ You need {job_data['req_rep']} Rep!", ephemeral=True)
 
+        # 3. Logic for buttons
         is_current_job = player.get("job") == job_id
         promo_level = player.get("job_level", 0) if is_current_job else 0
         
         self.view.current_selection = job_data
         self.view.update_buttons(is_current_job, promo_level)
         
+        # 4. Create Embed
         job_title = job_id.replace('_', ' ').title()
         if is_current_job and promo_level > 0:
-            job_title = f"{job_data['promotions'][promo_level-1]}"
+            # Safely get the promotion title
+            promos = job_data.get('promotions', [])
+            if len(promos) >= promo_level:
+                job_title = promos[promo_level-1]
 
         embed = discord.Embed(title=f"💼 Job Info: {job_title}", color=discord.Color.blue())
         if "image" in job_data: embed.set_thumbnail(url=job_data["image"])
@@ -59,6 +63,7 @@ class JobDropdown(discord.ui.Select):
         embed.add_field(name="💰 Current Salary", value=f"${salary}", inline=True)
         embed.add_field(name="⏳ Cooldown", value=f"{cooldown//60}m", inline=True)
 
+        # 5. Edit message (Acknowledge interaction)
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class JobView(discord.ui.View):
@@ -70,7 +75,8 @@ class JobView(discord.ui.View):
         # Add the dropdown
         self.add_item(JobDropdown(jobs_list, user_rep))
         
-        self.accept_btn = discord.ui.Button(label="Accept Job", style=discord.ButtonStyle.green, custom_id="accept_job", disabled=True)
+        # Buttons are defined here
+        self.accept_btn = discord.ui.Button(label="Accept Job", style=discord.ButtonStyle.green, disabled=True)
         self.promote_btn = discord.ui.Button(label="Promote", style=discord.ButtonStyle.gold, emoji="⭐", disabled=True)
         
         self.accept_btn.callback = self.accept_callback
@@ -81,34 +87,33 @@ class JobView(discord.ui.View):
 
     def update_buttons(self, is_current, level):
         self.accept_btn.disabled = is_current
+        # Max promotions is usually 3 based on your JSON
         self.promote_btn.disabled = not is_current or level >= 3
 
     async def accept_callback(self, interaction: discord.Interaction):
-        if not self.current_selection:
-            return await interaction.response.send_message("Please select a job first!", ephemeral=True)
-            
+        await interaction.response.defer(ephemeral=True) # Tells Discord we are processing
         await players.update_one(
             {"user_id": interaction.user.id}, 
             {"$set": {"job": self.current_selection['name'], "job_level": 0}}
         )
-        await interaction.response.send_message(f"✅ You started as a **{self.current_selection['name'].title()}**!", ephemeral=True)
+        await interaction.followup.send(f"✅ You started as a **{self.current_selection['name'].title()}**!", ephemeral=True)
         self.stop()
 
     async def promote_callback(self, interaction: discord.Interaction):
         player = await players.find_one({"user_id": interaction.user.id})
-        rep = player.get("stats", {}).get("reputation", 0)
         current_lvl = player.get("job_level", 0)
-        
         req_rep = (current_lvl + 1) * 100
-        if rep < req_rep:
-            return await interaction.response.send_message(f"❌ You need **{req_rep} Reputation** for a promotion!", ephemeral=True)
+        
+        if player.get("stats", {}).get("reputation", 0) < req_rep:
+            return await interaction.response.send_message(f"❌ You need **{req_rep} Rep**!", ephemeral=True)
 
+        await interaction.response.defer(ephemeral=True)
         await players.update_one(
             {"user_id": interaction.user.id},
             {"$inc": {"job_level": 1, "money": -50}}
         )
         new_title = self.current_selection['promotions'][current_lvl]
-        await interaction.response.send_message(f"🎊 Congratulations! You've been promoted to **{new_title}**!", ephemeral=True)
+        await interaction.followup.send(f"🎊 Promoted to **{new_title}**!", ephemeral=True)
         self.stop()
 
 class Jobs(commands.Cog):
@@ -119,17 +124,24 @@ class Jobs(commands.Cog):
         try:
             with open("assets/jobs.json") as f:
                 self.jobs = json.load(f)
-        except:
-            self.jobs = [{"name": "laborer", "salary": 30, "req_rep": 0, "cooldown": 300, "promotions": []}]
+        except Exception as e:
+            print(f"Error loading jobs: {e}")
+            self.jobs = []
 
     @commands.hybrid_command(name="jobs")
     async def jobs(self, ctx):
         player = await players.find_one({"user_id": ctx.author.id})
         if not player: return await ctx.send("❌ Use `!start` first.")
         
-        # Removed player_data from View init to keep it clean and dynamic
-        view = JobView(self.jobs, player.get("stats", {}).get("reputation", 0))
-        await ctx.send(embed=discord.Embed(title="💼 Job Board", description="Check your career or find a new path.", color=discord.Color.blue()), view=view)
+        user_rep = player.get("stats", {}).get("reputation", 0)
+        view = JobView(self.jobs, user_rep)
+        
+        embed = discord.Embed(
+            title="💼 Job Board", 
+            description="Select a job from the menu to see details.", 
+            color=discord.Color.blue()
+        )
+        await ctx.send(embed=embed, view=view)
 
     @commands.hybrid_command(name="work")
     async def work(self, ctx):
@@ -140,15 +152,18 @@ class Jobs(commands.Cog):
         promo_level = player.get("job_level", 0)
         job_data = next((j for j in self.jobs if j["name"] == job_id), self.jobs[0])
         
+        # Scaling stats
         salary = job_data["salary"] + (promo_level * 20)
         cooldown_time = job_data.get("cooldown", 300) + (promo_level * 60)
 
+        # Cooldown Check
         last_work = self.work_cooldowns.get(ctx.author.id, 0)
         retry_after = last_work + cooldown_time - time.time()
 
         if retry_after > 0:
-            return await ctx.send(f"⏳ Next shift in **{int(retry_after//60)}m {int(retry_after%60)}s**.")
+            return await ctx.send(f"⏳ Wait **{int(retry_after//60)}m {int(retry_after%60)}s**.")
 
+        # Start Minigame
         success = await self.mg_manager.run(ctx, job_data.get("minigame", "random"))
 
         if success:
@@ -157,10 +172,14 @@ class Jobs(commands.Cog):
                 {"user_id": ctx.author.id},
                 {"$inc": {"money": salary, "stats.reputation": 5}}
             )
-            title = job_data['promotions'][promo_level-1] if promo_level > 0 else job_id.replace('_', ' ').title()
-            await ctx.send(f"✅ **{title}** Shift Complete! Earned **${salary}**.")
+            # Find current title
+            title = job_id.replace('_', ' ').title()
+            if promo_level > 0:
+                title = job_data['promotions'][promo_level-1]
+            
+            await ctx.send(f"✅ **{title}** shift finished! Earned **${salary}**.")
         else:
-            await ctx.send("❌ Task failed!")
+            await ctx.send("❌ Work failed.")
 
 async def setup(bot):
     await bot.add_cog(Jobs(bot))
