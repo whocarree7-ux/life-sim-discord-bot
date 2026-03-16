@@ -3,19 +3,21 @@ def default_player(user_id, background):
         "user_id": user_id,
         "age": 21,
         "background": background,
-        "money": background["money"],   # Cash in wallet
-        "bank": 0,                       # Bank balance
-        "bank_limit": 5000,              # Max bank capacity
-        "debt": 0,                       # Total amount owed to the bank
-        "credit_score": 500,             # Affects loan limits (Standard is 500)
-        "missed_payments": 0,            # Tracks days for the 3-day seizure rule
+        "money": background["money"],   
+        "bank": 0,                       
+        "bank_limit": 5000,              
+        "debt": 0,                       
+        "credit_score": 500,             
+        "missed_payments": 0,            
         
-        "investments": {                 # Investment Portfolio
+        "investments": {                 
             "gold": 0, 
             "crypto": 0
         },
         
+        # --- JOB & PROMOTION UPDATE ---
         "job": "delivery_worker",
+        "job_level": 0,                  # 0 = Entry, 1-3 = Promoted
         
         "stats": {
             "intelligence": 3,
@@ -29,9 +31,8 @@ def default_player(user_id, background):
             "reputation": 5
         },
         
-        # --- HOUSING UPDATE ---
-        "house": "shelter",              # Current active residence
-        "owned_houses": ["shelter"],     # List of all properties the player owns
+        "house": "shelter",              
+        "owned_houses": ["shelter"],     
         
         "relationship": None
     }
