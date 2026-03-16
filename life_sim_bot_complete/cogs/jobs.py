@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import time
+import random
 from database.db import players
 from systems.minigame_manager import MinigameManager
 
@@ -70,7 +71,6 @@ class JobView(discord.ui.View):
         self.add_item(JobDropdown(jobs_list, user_rep))
         
         self.accept_btn = discord.ui.Button(label="Accept Job", style=discord.ButtonStyle.green, disabled=True)
-        # FIXED: Changed Style from .gold (invalid) to .secondary (grey) or .primary (blue)
         self.promote_btn = discord.ui.Button(label="Promote", style=discord.ButtonStyle.primary, emoji="⭐", disabled=True)
         
         self.accept_btn.callback = self.accept_callback
@@ -140,7 +140,14 @@ class Jobs(commands.Cog):
         promo_level = player.get("job_level", 0)
         job_data = next((j for j in self.jobs if j["name"] == job_id), self.jobs[0])
         
+        # Calculate Base Salary
         salary = job_data["salary"] + (promo_level * 20)
+        
+        # VAMPIRE BONUS LOGIC
+        is_vampire = player.get("background") == "vampire"
+        if is_vampire:
+            salary = int(salary * 2)
+
         cooldown_time = job_data.get("cooldown", 300) + (promo_level * 60)
 
         last_work = self.work_cooldowns.get(ctx.author.id, 0)
@@ -158,7 +165,9 @@ class Jobs(commands.Cog):
                 {"$inc": {"money": salary, "stats.reputation": 5}}
             )
             title = job_data['promotions'][promo_level-1] if promo_level > 0 else job_id.replace('_', ' ').title()
-            await ctx.send(f"✅ **{title}** Shift Complete! Earned **${salary}**.")
+            
+            bonus_text = " 🧛 (Vampire 2x Bonus!)" if is_vampire else ""
+            await ctx.send(f"✅ **{title}** Shift Complete! Earned **${salary}**.{bonus_text}")
         else:
             await ctx.send("❌ Task failed!")
 
