@@ -18,23 +18,23 @@ class JobDropdown(discord.ui.Select):
                 value=j['name'],
                 emoji="🔒" if is_locked else "💼"
             ))
+        # Ensure the view is linked
         super().__init__(placeholder="Choose your profession...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
         job_id = self.values[0]
         job_data = next((j for j in self.view.jobs_list if j["name"] == job_id), None)
         
+        # Fresh fetch of player data to avoid stale context
         player = await players.find_one({"user_id": interaction.user.id})
         user_rep = player.get("stats", {}).get("reputation", 0) if player else 0
 
         if user_rep < job_data.get('req_rep', 0):
             return await interaction.response.send_message(f"❌ You need {job_data['req_rep']} Rep!", ephemeral=True)
 
-        # Check if they are already in this job to show promotion button
         is_current_job = player.get("job") == job_id
         promo_level = player.get("job_level", 0) if is_current_job else 0
         
-        # Update view with the new selection and show promotion button if applicable
         self.view.current_selection = job_data
         self.view.update_buttons(is_current_job, promo_level)
         
@@ -45,7 +45,6 @@ class JobDropdown(discord.ui.Select):
         embed = discord.Embed(title=f"💼 Job Info: {job_title}", color=discord.Color.blue())
         if "image" in job_data: embed.set_thumbnail(url=job_data["image"])
 
-        # Career Path
         promo_list = job_data.get("promotions", [])
         path_text = f"Entry Level: {job_id.replace('_', ' ').title()}\n"
         for i, p in enumerate(promo_list):
@@ -54,9 +53,8 @@ class JobDropdown(discord.ui.Select):
         
         embed.add_field(name="📈 Career Progress", value=f"```\n{path_text}```", inline=False)
         
-        # Scaled Stats
-        salary = job_data['salary'] + (promo_level * 20) # +$20 per level
-        cooldown = job_data.get('cooldown', 300) + (promo_level * 60) # +1m per level
+        salary = job_data['salary'] + (promo_level * 20)
+        cooldown = job_data.get('cooldown', 300) + (promo_level * 60)
         
         embed.add_field(name="💰 Current Salary", value=f"${salary}", inline=True)
         embed.add_field(name="⏳ Cooldown", value=f"{cooldown//60}m", inline=True)
@@ -64,15 +62,15 @@ class JobDropdown(discord.ui.Select):
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class JobView(discord.ui.View):
-    def __init__(self, jobs_list, user_rep, player_data):
+    def __init__(self, jobs_list, user_rep):
         super().__init__(timeout=60)
         self.jobs_list = jobs_list
-        self.player_data = player_data
         self.current_selection = None
+        
+        # Add the dropdown
         self.add_item(JobDropdown(jobs_list, user_rep))
         
-        # Add Accept and Promote buttons (initially hidden/disabled)
-        self.accept_btn = discord.ui.Button(label="Accept Job", style=discord.ButtonStyle.green, custom_id="accept_job")
+        self.accept_btn = discord.ui.Button(label="Accept Job", style=discord.ButtonStyle.green, custom_id="accept_job", disabled=True)
         self.promote_btn = discord.ui.Button(label="Promote", style=discord.ButtonStyle.gold, emoji="⭐", disabled=True)
         
         self.accept_btn.callback = self.accept_callback
@@ -83,10 +81,12 @@ class JobView(discord.ui.View):
 
     def update_buttons(self, is_current, level):
         self.accept_btn.disabled = is_current
-        # Enable promote if they have more path to go (Max 3 promos)
         self.promote_btn.disabled = not is_current or level >= 3
 
     async def accept_callback(self, interaction: discord.Interaction):
+        if not self.current_selection:
+            return await interaction.response.send_message("Please select a job first!", ephemeral=True)
+            
         await players.update_one(
             {"user_id": interaction.user.id}, 
             {"$set": {"job": self.current_selection['name'], "job_level": 0}}
@@ -99,14 +99,13 @@ class JobView(discord.ui.View):
         rep = player.get("stats", {}).get("reputation", 0)
         current_lvl = player.get("job_level", 0)
         
-        # Requirement: 100 Rep per level
         req_rep = (current_lvl + 1) * 100
         if rep < req_rep:
             return await interaction.response.send_message(f"❌ You need **{req_rep} Reputation** for a promotion!", ephemeral=True)
 
         await players.update_one(
             {"user_id": interaction.user.id},
-            {"$inc": {"job_level": 1, "money": -50}} # Costs $50 for paperwork/fees
+            {"$inc": {"job_level": 1, "money": -50}}
         )
         new_title = self.current_selection['promotions'][current_lvl]
         await interaction.response.send_message(f"🎊 Congratulations! You've been promoted to **{new_title}**!", ephemeral=True)
@@ -128,7 +127,8 @@ class Jobs(commands.Cog):
         player = await players.find_one({"user_id": ctx.author.id})
         if not player: return await ctx.send("❌ Use `!start` first.")
         
-        view = JobView(self.jobs, player.get("stats", {}).get("reputation", 0), player)
+        # Removed player_data from View init to keep it clean and dynamic
+        view = JobView(self.jobs, player.get("stats", {}).get("reputation", 0))
         await ctx.send(embed=discord.Embed(title="💼 Job Board", description="Check your career or find a new path.", color=discord.Color.blue()), view=view)
 
     @commands.hybrid_command(name="work")
@@ -140,7 +140,6 @@ class Jobs(commands.Cog):
         promo_level = player.get("job_level", 0)
         job_data = next((j for j in self.jobs if j["name"] == job_id), self.jobs[0])
         
-        # Calculate Scaled Stats
         salary = job_data["salary"] + (promo_level * 20)
         cooldown_time = job_data.get("cooldown", 300) + (promo_level * 60)
 
