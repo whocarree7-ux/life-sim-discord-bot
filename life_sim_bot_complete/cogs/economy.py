@@ -154,13 +154,16 @@ class Economy(commands.Cog):
     # /pay or !pay
     # -----------------------------
     @commands.hybrid_command(name="pay", description="Transfer money from your bank to another player")
-    @app_commands.describe(member="The player you want to pay", amount="Amount to send")
-    async def pay(self, ctx: commands.Context, member: discord.Member, amount: int):
+    @app_commands.describe(target="The player you want to pay", amount="Amount to send")
+    @app_commands.guild_only()
+    async def pay(self, ctx: commands.Context, target: discord.Member, amount: int):
         if amount <= 0:
             return await ctx.send("❌ Amount must be greater than 0.")
-        if member.id == ctx.author.id:
+        
+        if target.id == ctx.author.id:
             return await ctx.send("❌ You cannot pay yourself!")
-        if member.bot:
+        
+        if target.bot:
             return await ctx.send("❌ You cannot pay bots.")
 
         sender = await players.find_one({"user_id": ctx.author.id})
@@ -171,24 +174,26 @@ class Economy(commands.Cog):
         if amount > sender_bank:
             return await ctx.send(f"❌ You don't have enough money in your bank!")
 
-        receiver = await players.find_one({"user_id": member.id})
+        receiver = await players.find_one({"user_id": target.id})
         if not receiver:
-            return await ctx.send(f"❌ {member.display_name} hasn't started their journey yet!")
+            return await ctx.send(f"❌ {target.display_name} hasn't started their journey yet!")
 
         tax = int(amount * 0.05)
         final_amount = amount - tax
 
+        # Process transaction
         await players.update_one({"user_id": ctx.author.id}, {"$inc": {"bank": -amount}})
-        await players.update_one({"user_id": member.id}, {"$inc": {"bank": final_amount}})
+        await players.update_one({"user_id": target.id}, {"$inc": {"bank": final_amount}})
 
         embed = discord.Embed(title="💸 Wire Transfer Complete", color=discord.Color.green())
         embed.add_field(name="Sender", value=ctx.author.mention, inline=True)
-        embed.add_field(name="Receiver", value=member.mention, inline=True)
+        embed.add_field(name="Receiver", value=target.mention, inline=True)
         embed.add_field(name="Sent", value=f"${amount}", inline=True)
         embed.add_field(name="Tax (5%)", value=f"-${tax}", inline=True)
         embed.add_field(name="Received", value=f"**${final_amount}**", inline=True)
+        embed.set_footer(text="Arcadia Banking System")
         
-        await ctx.send(content=member.mention, embed=embed)
+        await ctx.send(content=target.mention, embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Economy(bot))
