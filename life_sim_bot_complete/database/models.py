@@ -1,8 +1,13 @@
+import random
+
 def default_player(user_id, background):
+    # Get ranges from background or use empty dict if missing
+    ranges = background.get("stat_ranges", {})
+
     return {
         "user_id": user_id,
         "age": 21,
-        "background": background["name"], # Just save the name string
+        "background": background["name"],
         "money": background["money"],   
         "bank": 0,                       
         "bank_limit": 5000,              
@@ -16,23 +21,24 @@ def default_player(user_id, background):
         },
         
         "job": "delivery_worker",
-        "job_level": 0,
+        "job_level": 0,                  
         
         "stats": {
-            "intelligence": 3,
-            "strength": 3,
-            "charisma": 3,
-            "dexterity": 3,      # <--- ADDED THIS
-            "luck": 3,
-            "happiness": 50,
+            # Logic: random.randint(min, max) from our JSON
+            "intelligence": random.randint(*ranges.get("intelligence", [3, 5])),
+            "strength": random.randint(*ranges.get("strength", [3, 5])),
+            "charisma": random.randint(*ranges.get("charisma", [3, 5])),
+            "dexterity": random.randint(*ranges.get("dexterity", [3, 5])),
+            "luck": random.randint(*ranges.get("luck", [3, 5])),
+            
+            # Fixed ranges or background specific
+            "happiness": random.randint(*ranges.get("happiness", [40, 60])),
             "stress": 20,
             "health": 80,
             "energy": 100,
-            "reputation": 5,
-            "wanted_level": 0    # <--- USEFUL FOR CRIME
+            "reputation": random.randint(*ranges.get("reputation", [0, 10]))
         },
         
-        "is_jailed": False,      # <--- USEFUL FOR CRIME
         "house": "shelter",              
         "owned_houses": ["shelter"],     
         
