@@ -2,21 +2,46 @@
   {
     "name": "poor",
     "money": 50,
-    "chance": 60
+    "chance": 60,
+    "stat_ranges": {
+      "luck": [5, 10],
+      "strength": [4, 7],
+      "intelligence": [2, 5],
+      "happiness": [30, 60]
+    }
   },
   {
     "name": "middle_class",
     "money": 500,
-    "chance": 30
+    "chance": 30,
+    "stat_ranges": {
+      "luck": [3, 6],
+      "strength": [3, 5],
+      "intelligence": [4, 8],
+      "happiness": [50, 80]
+    }
   },
   {
     "name": "rich_kid",
     "money": 5000,
-    "chance": 9
+    "chance": 9,
+    "stat_ranges": {
+      "luck": [1, 4],
+      "charisma": [6, 10],
+      "intelligence": [5, 9],
+      "happiness": [70, 100]
+    }
   },
   {
     "name": "vampire",
     "money": 50000,
-    "chance": 1
+    "chance": 1,
+    "stat_ranges": {
+      "strength": [10, 15],
+      "dexterity": [8, 12],
+      "intelligence": [7, 12],
+      "reputation": [-20, 0],
+      "happiness": [10, 30]
+    }
   }
 ]
