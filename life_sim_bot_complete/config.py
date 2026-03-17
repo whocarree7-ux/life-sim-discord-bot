@@ -1,6 +1,0 @@
-
-TOKEN = ""
-MONGO_URI = "mongodb://localhost:27017"
-DATABASE_NAME = "life_sim"
-WORK_COOLDOWN = 3600
-STARTING_AGE = 21
