@@ -20,16 +20,16 @@ class Crime(commands.Cog):
         return ctx
 
     async def check_jail(self, ctx, player):
-        """Checks if a player is currently in jail."""
         jail_until = player.get("jail_until", 0)
         if time.time() < jail_until:
             remaining = int((jail_until - time.time()) / 60)
-            if remaining < 1: remaining = 1 # Show 1m even if seconds are left
+            if remaining < 1: remaining = 1
             await ctx.send(f"🚫 **JAIL**: You are locked up for another **{remaining}m**. You can't commit crimes yet!")
             return True
         return False
 
     @commands.hybrid_command(name="crime", description="Commit a random crime (15⚡)")
+    @commands.cooldown(1, 30, commands.BucketType.user) # 30 second cooldown
     async def crime(self, ctx):
         ctx = await self.get_working_context(ctx)
         player = await players.find_one({"user_id": ctx.author.id})
@@ -43,10 +43,15 @@ class Crime(commands.Cog):
         scenario = get_random_crime()
 
         if success:
-            if random.random() < 0.10: # 10% random police chance
+            if random.random() < 0.10:
                 return await ctx.send("🕵️ The police were watching! You had to ditch the loot and run.")
 
-            loot = random.randint(scenario['min_loot'], scenario['max_loot'])
+            # SCALING: Base loot + (Reputation factor for veterans)
+            rep = abs(player.get("stats", {}).get("reputation", 0))
+            base_loot = random.randint(scenario['min_loot'], scenario['max_loot'])
+            scaling_bonus = int(rep * 0.5) # Veterans get bonus based on "experience" (rep)
+            loot = base_loot + scaling_bonus
+
             await players.update_one(
                 {"user_id": ctx.author.id}, 
                 {"$inc": {"money": loot, "stats.reputation": scenario['rep_loss'], "stats.energy": -15}}
@@ -60,6 +65,7 @@ class Crime(commands.Cog):
             await ctx.send(f"👮 **Busted**: Fined **${scenario['penalty']}**.")
 
     @commands.hybrid_command(name="heist", description="High-stakes bank robbery (40⚡)")
+    @commands.cooldown(1, 3600, commands.BucketType.user) # 1 hour cooldown
     async def heist(self, ctx):
         ctx = await self.get_working_context(ctx)
         player = await players.find_one({"user_id": ctx.author.id})
@@ -72,14 +78,17 @@ class Crime(commands.Cog):
         success = await self.mg_manager.run(ctx, "memory") 
 
         if success and random.random() < 0.50:
-            loot = random.randint(5000, 15000)
+            # SCALING: Large bonus for intelligence in heists
+            intel = player.get('stats', {}).get('intelligence', 0)
+            loot = random.randint(5000, 15000) + (intel * 50)
+            
             await players.update_one(
                 {"user_id": ctx.author.id}, 
                 {"$inc": {"bank": loot, "stats.reputation": -50, "stats.energy": -40}}
             )
             await ctx.send(f"🏦 **HEIST SUCCESS!** You cleaned out **${loot}**! (-40⚡)")
         else:
-            jail_time = time.time() + 600 # 10 Minutes Jail
+            jail_time = time.time() + 600 
             await players.update_one(
                 {"user_id": ctx.author.id}, 
                 {"$set": {"money": 0, "jail_until": jail_time}, "$inc": {"stats.reputation": -30, "stats.energy": -10}}
@@ -87,6 +96,7 @@ class Crime(commands.Cog):
             await ctx.send("🚑 **HEIST FAILED**: SWAT arrived! You lost all pocket cash and were sent to **Jail (10m)**.")
 
     @commands.hybrid_command(name="hack", description="Hack the mainframe (20⚡)")
+    @commands.cooldown(1, 300, commands.BucketType.user) # 5 minute cooldown
     async def hack(self, ctx):
         ctx = await self.get_working_context(ctx)
         player = await players.find_one({"user_id": ctx.author.id})
@@ -99,8 +109,12 @@ class Crime(commands.Cog):
         success = await self.mg_manager.run(ctx, "reaction") 
 
         if success:
+            # SCALING: Intelligence-heavy reward with high variance (randomness)
             intel = player.get('stats', {}).get('intelligence', 0)
-            reward = 1000 + (intel * 10)
+            base_reward = random.randint(800, 1500)
+            intel_bonus = int(intel * random.uniform(15, 25)) # Random multiplier for stats
+            reward = base_reward + intel_bonus
+            
             await players.update_one(
                 {"user_id": ctx.author.id}, 
                 {"$inc": {"money": reward, "stats.energy": -20}}
@@ -143,6 +157,14 @@ class Crime(commands.Cog):
             await players.update_one({"user_id": ctx.author.id}, {"$inc": {"money": -fine, "stats.energy": -5}})
             await players.update_one({"user_id": target.id}, {"$inc": {"money": 100}})
             await ctx.send(f"🚨 **Busted!** You were caught and fined **${fine}**. {target.mention} kept some for themselves!")
+
+    # Error handler for cooldowns
+    @crime.error
+    @heist.error
+    @hack.error
+    async def on_command_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(f"⏳ **Cooldown**: Try again in {int(error.retry_after)}s", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Crime(bot))
