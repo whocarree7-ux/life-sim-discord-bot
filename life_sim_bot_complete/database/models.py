@@ -7,6 +7,7 @@ def default_player(user_id, background):
     return {
         "user_id": user_id,
         "age": 21,
+        "jail_until": 0,
         "background": background["name"],
         "money": background["money"],   
         "bank": 0,                       
